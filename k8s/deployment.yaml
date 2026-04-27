@@ -20,8 +20,8 @@ spec:
       # During a deploy: spin up 1 new pod before killing an old one.
       # At no point do you have fewer than 1 pod serving traffic.
       # This is zero-downtime deployment.
-      maxSurge: 1
-      maxUnavailable: 0
+      maxSurge: 0
+      maxUnavailable: 1
 
   template:
     metadata:
