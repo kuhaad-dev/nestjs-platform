@@ -1,0 +1,23 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: nest-app-hpa
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nest-app        # Must match your Deployment name exactly
+
+  minReplicas: 1          # Never go below 2 — one pod is never safe in prod
+  maxReplicas: 3          # Cap to prevent runaway scaling and cloud costs
+
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          # When average CPU across all pods exceeds 50%,
+          # spin up another replica. Scale down when it drops back.
+          averageUtilization: 50

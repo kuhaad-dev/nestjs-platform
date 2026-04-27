@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nest-app
+  namespace: default
+spec:
+  # Desired state: keep 2 copies of this pod running at all times.
+  # If one crashes, the ReplicaSet spins up a replacement immediately.
+  replicas: 1
+
+  # The Deployment uses this selector to know which pods it owns.
+  # Must match the labels in pod template below.
+  selector:
+    matchLabels:
+      app: nest-app
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # During a deploy: spin up 1 new pod before killing an old one.
+      # At no point do you have fewer than 1 pod serving traffic.
+      # This is zero-downtime deployment.
+      maxSurge: 1
+      maxUnavailable: 0
+
+  template:
+    metadata:
+      labels:
+        app: nest-app   # Must match selector.matchLabels above
+    spec:
+      containers:
+        - name: nest-app
+          # In CI/CD this will be replaced with your GCR image + SHA tag.
+          # For local minikube testing, we'll use the local image.
+          image: us-central1-docker.pkg.dev/nestjs-platform/nestjs-app/nest-app:latest
+          imagePullPolicy: Always   # Use local image in minikube, don't pull from registry
+
+          ports:
+            - containerPort: 3000
+
+          # Load non-secret config from ConfigMap
+          envFrom:
+            - configMapRef:
+                name: nest-app-config
+            - secretRef:
+                name: nest-app-secrets
+
+          # Liveness probe: if this fails, Kubernetes KILLS and RESTARTS the pod.
+          # Use for: detecting deadlocks, infinite loops, unrecoverable states.
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 3
+            # If this fails 3 times: pod is KILLED and RESTARTED
+            # Use for: app is deadlocked, stuck, unrecoverable without restart
+
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
+  # If this fails 3 times: pod is REMOVED FROM SERVICE LOAD BALANCER
+  # Pod keeps running — just gets no traffic
+  # Use for: app is starting up, temporarily overloaded, doing a DB migration
+
+          # Always set both requests and limits.
+          # requests = what the scheduler uses to find a node with enough capacity.
+          # limits = hard ceiling — container is killed if it exceeds memory limit.
+          # No requests = scheduler is flying blind.
+          # No limits = one bad pod can starve the entire node.
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"    # 100m = 0.1 CPU core
+            limits:
+              memory: "256Mi"
+              cpu: "300m"

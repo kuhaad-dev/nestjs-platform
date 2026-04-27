@@ -1,0 +1,138 @@
+services:
+
+  db:
+    image: mysql:8.0
+    container_name: nest-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: app_db
+      MYSQL_USER: app_user
+      MYSQL_PASSWORD: app_password
+    ports:
+      # Exposed ONLY for local dev so phpMyAdmin and your host tools can reach it.
+      # In production (Kubernetes), you will have NO ports block on your DB.
+      # Only the app service will reach MySQL — via internal cluster DNS.
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password
+    networks:
+      - app-network
+    # This is the fix for the race condition.
+    # Docker will probe this command every 5s. Only once it returns exit code 0
+    # three times in a row will this service be marked 'healthy'.
+    # Services with 'condition: service_healthy' will wait for this.
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+      # start_period is critical: gives MySQL time to initialize before
+      # healthcheck failures start counting against retries.
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # 'target' tells Docker which stage to stop at.
+      # During local dev you might want the builder stage (has ts-node, source).
+      # For prod-like testing locally, use 'production'.
+      target: production
+    container_name: nest-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        # This is the correct form. 'app' will not start until
+        # 'db' passes its healthcheck. This is the fix you needed.
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # Notice DB_HOST=db — this is the service name, not localhost.
+      # Inside Docker's network, service names resolve as hostnames.
+      # This is the same concept as Kubernetes service DNS: svc-name.namespace.svc.cluster.local
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: app_user
+      DB_PASSWORD: app_password
+      DB_NAME: app_db
+      JWT_ACCESS_SECRET: super-secret-access-change-me
+      JWT_REFRESH_SECRET: super-secret-refresh-change-me
+      JWT_ACCESS_TTL: 15m
+      JWT_REFRESH_TTL: 7d
+      CORS_ORIGIN: http://localhost:3001
+      SWAGGER_ENABLED: "true"
+    ports:
+      - "3000:3000"
+    networks:
+      - app-network
+    # Limit resources even locally — good habit.
+    # In Kubernetes these become 'resources.requests' and 'resources.limits'.
+    # A container without limits can starve other containers on the same node.
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: nest-phpmyadmin
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      MYSQL_ROOT_PASSWORD: rootpassword
+    ports:
+      - "8080:80"
+    networks:
+      - app-network
+
+# Explicitly defined network.
+# All three services are on the same network so they resolve each other by name.
+# 'app' can reach 'db' at http://db:3306
+# 'phpmyadmin' can reach 'db' at http://db:3306
+# Nothing outside Docker can reach 'db' except through the exposed port 3306.
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+
+
+# services:
+#   db:
+#     image: mysql:8.0
+#     container_name: nest-mysql
+#     restart: unless-stopped
+#     environment:
+#       MYSQL_ROOT_PASSWORD: rootpassword
+#       MYSQL_DATABASE: app_db
+#       MYSQL_USER: app_user
+#       MYSQL_PASSWORD: app_password
+#     ports:
+#       - "3306:3306"
+#     volumes:
+#       - mysql_data:/var/lib/mysql
+#     command: --default-authentication-plugin=mysql_native_password
+
+#   phpmyadmin:
+#     image: phpmyadmin/phpmyadmin
+#     container_name: nest-phpmyadmin
+#     restart: unless-stopped
+#     depends_on:
+#       - db
+#     environment:
+#       PMA_HOST: db
+#       PMA_PORT: 3306
+#       MYSQL_ROOT_PASSWORD: rootpassword
+#     ports:
+#       - "8080:80"
+
+# volumes:
+#   mysql_data:
