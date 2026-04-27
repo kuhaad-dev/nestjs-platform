@@ -114,7 +114,7 @@ jobs:
       - name: Update deployment image
         run: |
           kubectl set image deployment/nest-app \
-            nest-app=${{ needs.build.outputs.image }}
+            nest-app=${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE }}:${{ github.sha }}
         # Sets the exact SHA-tagged image on the deployment
         # Triggers a rolling update automatically
 
