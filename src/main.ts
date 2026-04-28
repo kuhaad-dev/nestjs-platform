@@ -5,10 +5,15 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
+import { MetricsService } from './metrics/metrics.service';
+import { MetricsInterceptor } from './metrics/metrics.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableShutdownHooks()
+
+const metricsService = app.get(MetricsService);
+app.useGlobalInterceptors(new MetricsInterceptor(metricsService));
 
   const configService = app.get(ConfigService);
 
