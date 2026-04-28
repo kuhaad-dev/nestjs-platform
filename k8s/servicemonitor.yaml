@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: nest-app-monitor
+  namespace: monitoring    # must be in monitoring namespace where Prometheus lives
+  labels:
+    release: monitoring    # must match the Helm release name
+spec:
+  namespaceSelector:
+    matchNames:
+      - default            # scrape services in the default namespace
+  selector:
+    matchLabels:
+      app: nest-app        # matches your Service's label
+  endpoints:
+    - port: http           # the port name on your Service
+      path: /api/metrics   # your metrics endpoint
+      interval: 15s        # scrape every 15 seconds

@@ -3,19 +3,14 @@ kind: Service
 metadata:
   name: nest-app-service
   namespace: default
+  labels:
+    app: nest-app          # ← add this label
 spec:
-  # ClusterIP = internal only. Only reachable within the cluster.
-  # This is correct for inter-service communication.
-  # To expose externally: LoadBalancer (cloud) or Ingress (preferred).
   type: ClusterIP
-
-  # Routes traffic to any pod with this label.
-  # When a pod dies and a new one starts (new IP), the Service
-  # automatically updates — your clients never notice.
   selector:
     app: nest-app
-
   ports:
-    - protocol: TCP
-      port: 80        # Port the Service listens on (inside cluster)
-      targetPort: 3000 # Port your container actually listens on
+    - name: http           # ← add port name
+      protocol: TCP
+      port: 80
+      targetPort: 3000
