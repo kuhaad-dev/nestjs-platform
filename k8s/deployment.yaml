@@ -32,7 +32,7 @@ spec:
         - name: nest-app
           # In CI/CD this will be replaced with your GCR image + SHA tag.
           # For local minikube testing, we'll use the local image.
-          image: us-central1-docker.pkg.dev/nestjs-platform/nestjs-app/nest-app:latest
+          image: YOUR IMAGE LINK
           imagePullPolicy: Always   # Use local image in minikube, don't pull from registry
 
           ports:
