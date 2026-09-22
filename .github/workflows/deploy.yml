@@ -4,6 +4,7 @@ name: Build and Deploy to GKE
 on:
   push:
     branches: [ "master" ]
+  workflow_dispatch:
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
@@ -41,6 +42,8 @@ jobs:
     name: Build and Push Image
     runs-on: ubuntu-latest
     needs: test   # only runs if test job passes
+    # Only run if GCP Workload Identity secrets are configured
+    if: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && secrets.GCP_SERVICE_ACCOUNT != '' }}
     
     # These permissions are required for Workload Identity Federation
     permissions:
